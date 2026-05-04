@@ -15,7 +15,7 @@ import duckdb
 import argparse
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--path", default="data/train.csv")
+parser.add_argument("--path", default="../data/train.csv")
 args = parser.parse_args()
 
 CSV = args.path
@@ -27,9 +27,9 @@ con.execute(f"""
     COPY (
         SELECT * FROM read_csv_auto('{CSV}', nullstr='NULL')
         USING SAMPLE 10 PERCENT (bernoulli, 42)
-    ) TO 'data/sample_q2.parquet' (FORMAT parquet)
+    ) TO '../data/sample_q2.parquet' (FORMAT parquet)
 """)
-q2_stats = con.execute("SELECT COUNT(*), ROUND(AVG(booking_bool)*100,3) FROM 'data/sample_q2.parquet'").fetchone()
+q2_stats = con.execute("SELECT COUNT(*), ROUND(AVG(booking_bool)*100,3) FROM '../data/sample_q2.parquet'").fetchone()
 print(f"  Q2: {q2_stats[0]:,} rows | booking rate: {q2_stats[1]}%")
 
 # ── Q3: 50% of random_bool=1 sessions, all hotels within each ────────────────
@@ -47,15 +47,15 @@ con.execute(f"""
             )
             USING SAMPLE 50 PERCENT (bernoulli, 42)
         ) s ON t.srch_id = s.srch_id
-    ) TO 'data/sample_q3.parquet' (FORMAT parquet)
+    ) TO '../data/sample_q3.parquet' (FORMAT parquet)
 """)
-q3_stats = con.execute("SELECT COUNT(*), COUNT(DISTINCT srch_id) FROM 'data/sample_q3.parquet'").fetchone()
+q3_stats = con.execute("SELECT COUNT(*), COUNT(DISTINCT srch_id) FROM '../data/sample_q3.parquet'").fetchone()
 print(f"  Q3: {q3_stats[0]:,} rows | {q3_stats[1]:,} sessions")
 
 print("\nDone.")
-print("  data/sample_q2.parquet — use for logistic regression (Q2)")
-print("  data/sample_q3.parquet — use for ranking optimization (Q3)")
+print("  ../data/sample_q2.parquet — use for logistic regression (Q2)")
+print("  ../data/sample_q3.parquet — use for ranking optimization (Q3)")
 print()
 print("Load in scripts with:")
 print("  import duckdb; con = duckdb.connect()")
-print("  df = con.execute(\"SELECT * FROM 'data/sample_q2.parquet'\").df()")
+print("  df = con.execute(\"SELECT * FROM '../data/sample_q2.parquet'\").df()")

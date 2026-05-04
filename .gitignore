@@ -1,6 +1,6 @@
 # Large data files
 
-data/train.csv
+data/*.csv
 
 # Tableau files
 *.twb
