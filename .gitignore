@@ -1,3 +1,10 @@
 # Large data files
 
 data/train.csv
+
+# Tableau files
+*.twb
+*.twbx
+*.twbr
+*.tds
+*.tdsx
