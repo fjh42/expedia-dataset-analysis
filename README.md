@@ -38,6 +38,26 @@ We study what drives hotel **clicks** and **bookings**, with a focus on:
 ```bash
 python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+Use a fresh virtual environment for this project to avoid binary-compatibility
+issues between global/anaconda packages and pinned `numpy`/`pandas` versions.
+
+Dependency smoke test:
+
+```bash
+python -c "import numpy, pandas, statsmodels, sklearn; print('ok')"
+```
+
+If you see a numpy/pandas binary mismatch error, recreate the venv and reinstall:
+
+```bash
+rm -rf .venv
+python -m venv .venv
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
