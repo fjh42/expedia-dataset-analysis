@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 import statsmodels.api as sm
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import GroupShuffleSplit
 
 
 FEATURES: list[str] = [
@@ -88,7 +88,7 @@ def main() -> None:
 
     print("\n[1/5] Loading and validating data...")
     df_full = pd.read_parquet(args.data)
-    required_cols = FEATURES + [TARGET]
+    required_cols = FEATURES + [TARGET, "srch_id"]
     missing_required = [c for c in required_cols if c not in df_full.columns]
     if missing_required:
         raise ValueError(f"Missing required columns: {missing_required}")
@@ -107,9 +107,15 @@ def main() -> None:
     print("\n[2/5] Splitting train/test and building baseline...")
     X = df[FEATURES]
     y = df[TARGET]
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=args.test_size, random_state=args.seed
-    )
+    groups = df["srch_id"]
+    splitter = GroupShuffleSplit(n_splits=1, test_size=args.test_size, random_state=args.seed)
+    train_idx, test_idx = next(splitter.split(X, y, groups=groups))
+    X_train = X.iloc[train_idx]
+    X_test = X.iloc[test_idx]
+    y_train = y.iloc[train_idx]
+    y_test = y.iloc[test_idx]
+    train_groups = set(groups.iloc[train_idx])
+    test_groups = set(groups.iloc[test_idx])
 
     X_train_sm = sm.add_constant(X_train, has_constant="add")
     X_test_sm = sm.add_constant(X_test, has_constant="add")
@@ -117,6 +123,9 @@ def main() -> None:
 
     print(f"Train shape      : {X_train.shape}")
     print(f"Test shape       : {X_test.shape}")
+    print(f"Train sessions   : {len(train_groups):,}")
+    print(f"Test sessions    : {len(test_groups):,}")
+    print(f"Session overlap  : {len(train_groups & test_groups)}")
 
     print("\n[3/5] Fitting OLS model...")
     ols_model = sm.OLS(y_train, X_train_sm).fit()
