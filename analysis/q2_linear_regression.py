@@ -114,6 +114,7 @@ def main() -> None:
     X_test = X.iloc[test_idx]
     y_train = y.iloc[train_idx]
     y_test = y.iloc[test_idx]
+    groups_train = groups.iloc[train_idx]
     train_groups = set(groups.iloc[train_idx])
     test_groups = set(groups.iloc[test_idx])
 
@@ -127,8 +128,10 @@ def main() -> None:
     print(f"Test sessions    : {len(test_groups):,}")
     print(f"Session overlap  : {len(train_groups & test_groups)}")
 
-    print("\n[3/5] Fitting OLS model...")
-    ols_model = sm.OLS(y_train, X_train_sm).fit()
+    print("\n[3/5] Fitting OLS model with clustered standard errors...")
+    ols_model = sm.OLS(y_train, X_train_sm).fit(
+        cov_type="cluster", cov_kwds={"groups": groups_train}
+    )
     print(ols_model.summary())
 
     print("\n[4/5] Evaluating model...")
@@ -152,7 +155,10 @@ def main() -> None:
             {
                 "feature": ols_model.params.index,
                 "coef": ols_model.params.values,
+                "std_err": ols_model.bse.values,
                 "pvalue": ols_model.pvalues.values,
+                "ci_low": ols_model.conf_int().iloc[:, 0].values,
+                "ci_high": ols_model.conf_int().iloc[:, 1].values,
             }
         )
         .query("feature != 'const'")
