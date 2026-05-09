@@ -27,7 +27,13 @@ from typing import Iterable
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
-from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
+from sklearn.metrics import (
+    average_precision_score,
+    mean_absolute_error,
+    mean_squared_error,
+    r2_score,
+    roc_auc_score,
+)
 from sklearn.model_selection import GroupShuffleSplit
 
 
@@ -80,6 +86,13 @@ def regression_metrics(y_true: Iterable[float], y_hat: Iterable[float]) -> dict[
         "RMSE": mean_squared_error(y_true, y_hat, squared=False),
         "MAE": mean_absolute_error(y_true, y_hat),
         "R2": r2_score(y_true, y_hat),
+    }
+
+
+def imbalance_metrics(y_true: Iterable[float], y_score: Iterable[float]) -> dict[str, float]:
+    return {
+        "PR_AUC": average_precision_score(y_true, y_score),
+        "ROC_AUC": roc_auc_score(y_true, y_score),
     }
 
 
@@ -140,9 +153,21 @@ def main() -> None:
 
     results = pd.DataFrame(
         [
-            {"Model": "Baseline (mean)", **regression_metrics(y_test, y_pred_baseline)},
-            {"Model": "OLS (raw pred)", **regression_metrics(y_test, y_pred)},
-            {"Model": "OLS (clipped 0-1)", **regression_metrics(y_test, y_pred_clipped)},
+            {
+                "Model": "Baseline (mean)",
+                **regression_metrics(y_test, y_pred_baseline),
+                **imbalance_metrics(y_test, y_pred_baseline),
+            },
+            {
+                "Model": "OLS (raw pred)",
+                **regression_metrics(y_test, y_pred),
+                **imbalance_metrics(y_test, y_pred),
+            },
+            {
+                "Model": "OLS (clipped 0-1)",
+                **regression_metrics(y_test, y_pred_clipped),
+                **imbalance_metrics(y_test, y_pred_clipped),
+            },
         ]
     )
     print(results.to_string(index=False))
