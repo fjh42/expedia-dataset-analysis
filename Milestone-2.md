@@ -1,24 +1,54 @@
 ## What is the project about?
 
-This project analyzes Expedia's large-scale hotel search logs to understand what drives user clicks and bookings. The dataset includes 9,917,530 hotel impressions from 399,344 search sessions between November 2012 and June 2013, with each row representing one hotel shown in one search. We study both hotel-side factors (star rating, reviews, brand, location scores, price, promotions) and search context factors (trip length, booking window, adults, rooms), while explicitly addressing major confounding from display position. A key feature of this dataset is Expedia's built-in natural experiment (`random_bool=1`), where hotel order was randomized in about 29.6% of sessions, allowing cleaner comparison between algorithm-driven ranking effects and true user preferences.
+This project analyzes Expedia hotel search logs to identify what drives clicks and bookings while explicitly accounting for ranking bias. The dataset includes 9,917,530 hotel impressions from 399,344 search sessions (November 2012 to June 2013), where each row is one hotel impression within one search. We study hotel-side features (star rating, review score, brand, location score, and price signals) and search-side context (booking window, stay length, adults, and Saturday-night indicator), then evaluate how strongly these features relate to booking outcomes.
 
-## What question(s) does the project propose to answer?
+A key design feature is Expedia's built-in natural experiment: `random_bool=1` sessions, where result order is randomized rather than algorithmically ranked. This allows us to separate true user preference signals from exposure effects caused by display position.
 
-The first core question is: which hotel attributes and pricing signals are most associated with higher click and booking rates on Expedia? This includes direct feature relationships (such as star rating, price tier, and competitor price competitiveness) and interaction effects (for example, whether high-star hotels only convert well at certain price levels).
-The second question is: beyond display position, which attributes still predict booking behavior, and which observed patterns are mostly artifacts of Expedia's ranking algorithm? To answer this, we compare algorithm-ranked sessions to randomized sessions and use logistic-model diagnostics to evaluate whether feature effects are robust after controlling for position bias.
+## What questions does the project answer?
 
-## Question Importance
+1. Which hotel and pricing attributes are associated with higher booking probability?
+2. After controlling for display position, which effects remain robust versus which patterns are mostly ranking artifacts?
+3. How should we combine descriptive analysis and predictive modeling to produce defensible conclusions from observational platform data?
 
-This question is important because online travel platforms make ranking and pricing decisions at very large scale, and small improvements in conversion can have significant revenue impact. The most interested stakeholders include Expedia's ranking/product teams, hotel revenue managers, and travelers indirectly affected by ranking quality and pricing strategy. If we can separate true preference signals from position bias, Expedia can rank hotels more effectively and hotels can make better pricing and promotion decisions rather than over-attributing outcomes to surface-level metrics. More broadly, this project demonstrates how to make stronger inferences from observational platform data by leveraging natural experiments instead of relying only on naive correlations.
+## Why this question matters
 
-## Analysis 1
+The problem is practically important because small conversion improvements in travel ranking systems have large revenue impact at platform scale. The main stakeholders are ranking and product teams, hotel revenue managers, and end users affected by ranking quality. Methodologically, this project demonstrates how to use natural experiments and careful diagnostics to avoid over-interpreting naive correlations.
 
-This analysis examines booking rate by hotel star rating across the full dataset to evaluate whether higher-rated hotels consistently convert better. It shows a non-linear pattern: booking rates rise from 1-star (1.27%) through 4-star (3.34%) hotels, then decline for 5-star hotels (2.58%), suggesting that perceived quality alone does not explain booking behavior. What is good about this analysis is that it is simple, interpretable, and grounded in a very large sample, so the observed pattern is unlikely to be noise. A key improvement would be to stratify by price tier and position (or isolate random sessions) because star rating effects are partially confounded by both price sensitivity and ranking placement.
+## Analysis 1: Booking rate by star rating
 
-## Analysis 2
+We first compare booking rate across `prop_starrating` to establish an interpretable baseline relationship. The pattern is non-linear: booking rate rises from 1-star (1.27%) to 4-star (3.34%), then falls at 5-star (2.58%). This indicates quality signals matter, but not monotonically, and suggests price/value trade-offs are important.
 
-This analysis compares booking rate by display position, split between algorithm-ranked sessions (`random_bool=0`) and randomized sessions (`random_bool=1`). The central insight is that the steep conversion advantage at top positions is mostly algorithmic: in ranked sessions the top positions dominate bookings, while in randomized sessions the curve is far flatter, indicating that much of the apparent "quality" signal in raw data is actually position bias. The strongest part of this analysis is causal credibility relative to pure descriptive plots, because it uses Expedia's randomized ordering as a natural experiment. It could be improved by adding confidence intervals (especially where impression counts are low, such as some anomalous ranks), and by quantifying the effect size with a formal model (e.g., odds ratios controlling for covariates).
+Strength: highly interpretable summary over a very large sample.  
+Limitation: raw relationship is confounded by both position and price composition.
 
-## Analysis 3
+## Analysis 2: Position bias using randomized sessions
 
-This analysis uses a star-rating by price-tier heatmap of booking rates to study how quality and price interact instead of treating them as independent effects. It reveals that value dominates luxury in many segments: high-star hotels in cheaper tiers convert best, and lower-star but cheaper options can outperform expensive high-star listings, supporting the idea that users optimize for value rather than star rating alone. A major strength is that the visualization captures interaction structure that single-variable plots miss, directly informing feature design for later predictive modeling. An improvement would be to run the same heatmap separately for randomized sessions and algorithm-ranked sessions, then test interaction significance in a logistic model to verify which cells reflect true preference versus ranking-induced exposure.
+We compare booking rate by display `position` for ranked sessions (`random_bool=0`) versus randomized sessions (`random_bool=1`). The steep top-position advantage in ranked sessions becomes much flatter in randomized sessions, showing that much of the apparent top-rank "quality" signal is exposure generated by the ranking algorithm.
+
+Strength: stronger causal credibility than purely descriptive plots because randomization breaks algorithmic ordering.  
+Limitation: still needs formal effect-size reporting with uncertainty (confidence intervals and model-based estimates).
+
+## Analysis 3: Star rating x price-tier interaction
+
+We use a star-rating-by-price-tier heatmap to study interaction effects rather than isolated univariate averages. The main pattern is value sensitivity: high-star hotels perform best when priced competitively, and lower-star affordable options can outperform expensive higher-star listings.
+
+Strength: captures interaction structure missed by single-variable summaries.  
+Limitation: should be split by ranked vs randomized sessions and tested in a model to verify which interaction patterns are robust.
+
+## Current modeling status for Q2
+
+For Q2, we maintain logistic regression as the primary inference model and use a linear probability model (LPM) as a transparent benchmark. The current benchmark workflow was strengthened in three ways:
+
+- Session-aware train/test split by `srch_id` to avoid leakage across impressions from the same search.
+- Cluster-robust standard errors by `srch_id` to account for within-session correlation.
+- Imbalance-aware evaluation metrics (PR-AUC and ROC-AUC) added alongside RMSE, MAE, and R2.
+
+These updates improve credibility, reproducibility, and alignment with the low booking-rate setting.
+
+## Key takeaways and next steps
+
+- Position is a dominant confounder; naive top-rank patterns overstate intrinsic hotel quality effects.
+- Quality and price interact strongly; value-oriented combinations are often more predictive than star rating alone.
+- Natural randomization in `random_bool=1` sessions is essential for cleaner interpretation.
+
+Next, we will report finalized coefficient tables and uncertainty summaries from logistic and linear models side by side, then consolidate robust findings and caveats into the final write-up.
