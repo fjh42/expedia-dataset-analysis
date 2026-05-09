@@ -94,15 +94,29 @@ python analysis/q2_linear_regression.py --data data/sample_q2.parquet
 1. Create `sample_q2.parquet` with `analysis/prepare_samples.py`.
 2. Run `analysis/q2_diagnostics.ipynb` to validate logistic-model assumptions and interpret feature behavior.
 3. Run `analysis/q2_linear_regression.ipynb` or `analysis/q2_linear_regression.py` for a linear probability benchmark.
-4. Compare coefficient direction/significance and metric behavior across logistic vs linear outputs.
-5. Use both analyses in milestone writing: logistic for primary inference, linear for transparent comparison and robustness context.
+4. In the script benchmark, use session-aware splitting by `srch_id` to avoid train/test leakage across hotels from the same search.
+5. Fit OLS with `srch_id`-clustered robust standard errors so coefficient uncertainty accounts for within-session correlation.
+6. Compare coefficient direction/significance and metric behavior across logistic vs linear outputs.
+7. Use both analyses in milestone writing: logistic for primary inference, linear for transparent comparison and robustness context.
+
+### What the Q2 linear script reports
+
+`analysis/q2_linear_regression.py` is designed as a reproducible benchmark pipeline. It prints:
+
+- data retention summary (full rows, post-dropna rows, working sample, booking rate),
+- split integrity checks (train/test rows, train/test sessions, session overlap),
+- clustered OLS summary table,
+- baseline vs model metrics,
+- prediction-bounds sanity check (share of raw LPM predictions outside [0, 1]),
+- top positive and top negative coefficients with p-values and confidence intervals.
 
 ## Expected Q2 outputs
 
 After running the Q2 notebooks/script, report these deliverables:
 
-- Model quality metrics from linear analysis: RMSE, MAE, and R2 (plus baseline comparison).
+- Model quality metrics from linear analysis: RMSE, MAE, R2, PR-AUC, and ROC-AUC (plus baseline comparison).
 - Coefficient interpretation: top positive and top negative feature effects, including direction and magnitude.
+- Inference summary: clustered standard errors and confidence intervals for key coefficients.
 - Diagnostics summary: residual behavior for linear model and assumption-check takeaways from logistic diagnostics.
 - Cross-model consistency check: where linear and logistic results agree or differ in feature direction/significance.
 - Milestone-ready conclusion bullets: what appears robust, what is likely confounded by position/ranking, and key caveats.
