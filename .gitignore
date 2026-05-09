@@ -1,0 +1,10 @@
+# Large data files
+
+data/*.csv
+
+# Tableau files
+*.twb
+*.twbx
+*.twbr
+*.tds
+*.tdsx
