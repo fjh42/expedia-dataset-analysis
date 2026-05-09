@@ -1,3 +1,24 @@
+# Expedia Hotel Search: Ranking Bias, Conversion Drivers, and Modeling (Project Milestone 2)
+
+**Course:** ORIE 3120: Practical Tools for ORIE, Machine Learning & Data Science  
+**Semester:** Spring 2026  
+**Submission date:** May 9, 2026
+
+**Authors**
+
+- Francisco Herrera Leon (fjh42)  
+- Nick-Aurel Mugirashaka (nm465)  
+- Elina Soskina (es874)  
+- Ogbonna Ugwu-Uche (ou26)  
+
+---
+
+## Introduction
+
+This document is our Milestone 2 submission for the Expedia hotel search log project. We summarize the business and statistical motivation for studying clicks and bookings in a large observational ranking environment, pose the substantive questions our analyses address, and report three core analyses plus the current direction of our predictive work (Question 2). The exposition is structured so reviewers can scan from high-level framing through specific results, strengths, limitations, and planned extensions. Together, these sections document how we combine descriptive insights with design features from Expedia’s data (especially randomized result order) to interpret patterns without overstating causal claims where ranking exposure dominates.
+
+---
+
 ## What is the project about?
 
 This project analyzes Expedia hotel search logs to identify what drives clicks and bookings while explicitly accounting for ranking bias. The dataset includes 9,917,530 hotel impressions from 399,344 search sessions (November 2012 to June 2013), where each row is one hotel impression within one search. We study hotel-side features (star rating, review score, brand, location score, and price signals) and search-side context (booking window, stay length, adults, and Saturday-night indicator), then evaluate how strongly these features relate to booking outcomes.
@@ -35,20 +56,33 @@ We use a star-rating-by-price-tier heatmap to study interaction effects rather t
 Strength: captures interaction structure missed by single-variable summaries.  
 Limitation: should be split by ranked vs randomized sessions and tested in a model to verify which interaction patterns are robust.
 
-## Current modeling status for Q2
+## Q2: logistic regression coefficients
 
-For Q2, we maintain logistic regression as the primary inference model and use a linear probability model (LPM) as a transparent benchmark. The current benchmark workflow was strengthened in three ways:
+Benchmark models use the feature set implemented in `analysis/q2_diagnostics.ipynb` and `analysis/q2_linear_regression.py` (among others): `booking_bool` as the outcome; predictors include `position`, star rating, review score, brand flag, location score, logged price signals, booking window, length of stay, adult count, and Saturday-night indicator. Train/test splitting is grouped by `srch_id`; the linear script also applies session-clustered standard errors.
 
-- Session-aware train/test split by `srch_id` to avoid leakage across impressions from the same search.
-- Cluster-robust standard errors by `srch_id` to account for within-session correlation.
-- Imbalance-aware evaluation metrics (PR-AUC and ROC-AUC) added alongside RMSE, MAE, and R2.
+The logistic fit below reproduces **saved output from `analysis/q2_diagnostics.ipynb`** (training on a random 50k-row subset of `sample_q2.parquet` with default `statsmodels` standard errors; not session-clustered). **Odds ratios** are OR = exp(β).
 
-These updates improve credibility, reproducibility, and alignment with the low booking-rate setting.
+| Term | β (log odds) | OR | Std. err. | z | p-value |
+|------|----------------|-----|-----------|-------|---------|
+| const | −0.6787 | n/a | 0.246 | −2.76 | 0.006 |
+| position | −0.1176 | 0.889 | 0.004 | −29.50 | <0.001 |
+| prop_starrating | 0.2079 | 1.231 | 0.035 | 5.93 | <0.001 |
+| prop_review_score | 0.1936 | 1.214 | 0.037 | 5.24 | <0.001 |
+| prop_brand_bool | 0.0581 | 1.060 | 0.060 | 0.97 | 0.33 |
+| prop_location_score1 | −0.0056 | 0.994 | 0.020 | −0.28 | 0.78 |
+| log_price_usd | −0.5557 | 0.574 | 0.055 | −10.04 | <0.001 |
+| prop_log_historical_price | 0.0004 | 1.000 | 0.015 | 0.03 | 0.98 |
+| srch_booking_window | −0.0011 | 0.999 | 0.001 | −1.80 | 0.072 |
+| srch_length_of_stay | −0.0572 | 0.944 | 0.017 | −3.37 | 0.001 |
+| srch_adults_count | −0.0317 | 0.969 | 0.033 | −0.95 | 0.34 |
+| srch_saturday_night_bool | −0.0534 | 0.948 | 0.057 | −0.94 | 0.35 |
 
-## Key takeaways and next steps
+**Linear probability model (OLS, clustered SEs).** Rerun `python analysis/q2_linear_regression.py --data data/sample_q2.parquet` from the repo root; stdout includes the clustered-covariance summary plus sorted coefficient tables for comparison with logistic signs/magnitudes (LPM coefs approximate marginal Δ in booking probability).
+
+## Key takeaways
 
 - Position is a dominant confounder; naive top-rank patterns overstate intrinsic hotel quality effects.
 - Quality and price interact strongly; value-oriented combinations are often more predictive than star rating alone.
 - Natural randomization in `random_bool=1` sessions is essential for cleaner interpretation.
 
-Next, we will report finalized coefficient tables and uncertainty summaries from logistic and linear models side by side, then consolidate robust findings and caveats into the final write-up.
+Treat these estimates as associative: they align with descriptives above and should be interpreted with observational-platform caveats rather than as exact causal elasticities.

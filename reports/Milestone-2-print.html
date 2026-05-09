@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Milestone 2: Expedia analysis</title>
+  <!-- Print source for Milestone-2.pdf: content mirrors Milestone-2.md with print-oriented styling. -->
+  <style>
+    @page { size: letter; margin: 18mm 16mm 20mm 16mm; }
+    html {
+      font-size: 11pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    body {
+      font-family: Charter, "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+      line-height: 1.52;
+      color: #111;
+      max-width: 40rem;
+      margin: 0 auto;
+      padding: 0.75rem;
+      hyphens: auto;
+      font-feature-settings: "kern" 1, "liga" 1, "onum" 1;
+    }
+    h1 {
+      font-size: 1.42rem;
+      font-weight: 700;
+      line-height: 1.22;
+      margin: 0 0 0.85rem;
+      letter-spacing: -0.025em;
+      border-bottom: 1px solid #bbb;
+      padding-bottom: 0.55rem;
+    }
+    h2 {
+      font-size: 1.06rem;
+      font-weight: 700;
+      margin: 1.45rem 0 0.5rem;
+      color: #0a0a0a;
+    }
+    .meta strong { font-weight: 700; }
+    .meta p { margin: 0.35em 0; }
+    ul.meta-list { margin: 0.4rem 0 0.6rem; padding-left: 1.3rem; }
+    ul.meta-list li { margin: 0.25em 0; }
+    p { margin: 0.52em 0; text-align: justify; orphans: 3; widows: 3; }
+    hr {
+      border: none;
+      border-top: 1px solid #d4d4d4;
+      margin: 1.15rem 0;
+    }
+    ol { padding-left: 1.35rem; }
+    ol li { margin: 0.42em 0; }
+    ul:not(.meta-list) { padding-left: 1.35rem; }
+    ul:not(.meta-list) li { margin: 0.4em 0; }
+    code {
+      font-family: "SF Mono", ui-monospace, Menlo, Monaco, "Courier New", monospace;
+      font-size: 0.9em;
+      background: #f2f3f6;
+      padding: 0.1em 0.35em;
+      border-radius: 3px;
+      font-weight: 500;
+    }
+    strong { font-weight: 700; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.91rem;
+      margin: 0.75rem 0 1rem;
+      font-variant-numeric: tabular-nums lining-nums;
+    }
+    thead th {
+      text-align: left;
+      border-bottom: 2px solid #222;
+      padding: 0.38rem 0.45rem;
+      font-weight: 700;
+      vertical-align: bottom;
+    }
+    tbody td {
+      border-bottom: 1px solid #e4e4e4;
+      padding: 0.34rem 0.45rem;
+      vertical-align: top;
+    }
+    tbody tr:nth-child(even) { background: #f9f9f9; }
+    .narrow { letter-spacing: 0; word-spacing: normal; }
+    ol.lower-alpha { list-style-type: lower-alpha; }
+    @media print {
+      body { padding: 0; }
+      p { orphans: 2; widows: 2; }
+    }
+  </style>
+</head>
+<body>
+  <article>
+    <h1>Expedia Hotel Search: Ranking Bias, Conversion Drivers, and Modeling (Project Milestone 2)</h1>
+
+    <div class="meta">
+      <p><strong>Course:</strong> ORIE 3120: Practical Tools for ORIE, Machine Learning &amp; Data Science</p>
+      <p><strong>Semester:</strong> Spring 2026</p>
+      <p><strong>Submission date:</strong> May 9, 2026</p>
+      <p><strong>Authors</strong></p>
+      <ul class="meta-list">
+        <li>Francisco Herrera Leon (fjh42)</li>
+        <li>Nick-Aurel Mugirashaka (nm465)</li>
+        <li>Elina Soskina (es874)</li>
+        <li>Ogbonna Ugwu-Uche (ou26)</li>
+      </ul>
+    </div>
+
+    <hr />
+
+    <h2>Introduction</h2>
+    <p>This document is our Milestone 2 submission for the Expedia hotel search log project. We summarize the business and statistical motivation for studying clicks and bookings in a large observational ranking environment, pose the substantive questions our analyses address, and report three core analyses plus the current direction of our predictive work (Question 2). The exposition is structured so reviewers can scan from high-level framing through specific results, strengths, limitations, and planned extensions. Together, these sections document how we combine descriptive insights with design features from Expedia’s data (especially randomized result order) to interpret patterns without overstating causal claims where ranking exposure dominates.</p>
+
+    <hr />
+
+    <h2>What is the project about?</h2>
+    <p>This project analyzes Expedia hotel search logs to identify what drives clicks and bookings while explicitly accounting for ranking bias. The dataset includes 9,917,530 hotel impressions from 399,344 search sessions (November 2012 to June 2013), where each row is one hotel impression within one search. We study hotel-side features (star rating, review score, brand, location score, and price signals) and search-side context (booking window, stay length, adults, and Saturday-night indicator), then evaluate how strongly these features relate to booking outcomes.</p>
+    <p>A key design feature is Expedia’s built-in natural experiment: <code>random_bool=1</code> sessions, where result order is randomized rather than algorithmically ranked. This allows us to separate true user preference signals from exposure effects caused by display position.</p>
+
+    <h2>What questions does the project answer?</h2>
+    <ol>
+      <li>Which hotel and pricing attributes are associated with higher booking probability?</li>
+      <li>After controlling for display position, which effects remain robust versus which patterns are mostly ranking artifacts?</li>
+      <li>How should we combine descriptive analysis and predictive modeling to produce defensible conclusions from observational platform data?</li>
+    </ol>
+
+    <h2>Why this question matters</h2>
+    <p>The problem is practically important because small conversion improvements in travel ranking systems have large revenue impact at platform scale. The main stakeholders are ranking and product teams, hotel revenue managers, and end users affected by ranking quality. Methodologically, this project demonstrates how to use natural experiments and careful diagnostics to avoid over-interpreting naive correlations.</p>
+
+    <h2>Analysis 1: Booking rate by star rating</h2>
+    <p>We first compare booking rate across <code>prop_starrating</code> to establish an interpretable baseline relationship. The pattern is non-linear: booking rate rises from 1-star (1.27%) to 4-star (3.34%), then falls at 5-star (2.58%). This indicates quality signals matter, but not monotonically, and suggests price/value trade-offs are important.</p>
+    <p><strong>Strength:</strong> highly interpretable summary over a very large sample.<br />
+    <strong>Limitation:</strong> raw relationship is confounded by both position and price composition.</p>
+
+    <h2>Analysis 2: Position bias using randomized sessions</h2>
+    <p>We compare booking rate by display <code>position</code> for ranked sessions (<code>random_bool=0</code>) versus randomized sessions (<code>random_bool=1</code>). The steep top-position advantage in ranked sessions becomes much flatter in randomized sessions, showing that much of the apparent top-rank “quality” signal is exposure generated by the ranking algorithm.</p>
+    <p><strong>Strength:</strong> stronger causal credibility than purely descriptive plots because randomization breaks algorithmic ordering.<br />
+    <strong>Limitation:</strong> still needs formal effect-size reporting with uncertainty (confidence intervals and model-based estimates).</p>
+
+    <h2>Analysis 3: Star rating × price-tier interaction</h2>
+    <p>We use a star-rating-by-price-tier heatmap to study interaction effects rather than isolated univariate averages. The main pattern is value sensitivity: high-star hotels perform best when priced competitively, and lower-star affordable options can outperform expensive higher-star listings.</p>
+    <p><strong>Strength:</strong> captures interaction structure missed by single-variable summaries.<br />
+    <strong>Limitation:</strong> should be split by ranked vs randomized sessions and tested in a model to verify which interaction patterns are robust.</p>
+
+    <h2>Q2: logistic regression coefficients</h2>
+    <p>Benchmark models use the feature set implemented in <code>analysis/q2_diagnostics.ipynb</code> and <code>analysis/q2_linear_regression.py</code> (among others): <code>booking_bool</code> as the outcome; predictors include <code>position</code>, star rating, review score, brand flag, location score, logged price signals, booking window, length of stay, adult count, and Saturday-night indicator. Train/test splitting is grouped by <code>srch_id</code>; the linear script also applies session-clustered standard errors.</p>
+    <p>The logistic fit below reproduces <strong>saved output from <code>analysis/q2_diagnostics.ipynb</code></strong> (training on a random 50k-row subset of <code>sample_q2.parquet</code> with default <code>statsmodels</code> standard errors; not session-clustered). <strong>Odds ratios</strong> are OR = exp(β).</p>
+
+    <div class="narrow">
+      <table>
+        <thead>
+          <tr>
+            <th>Term</th>
+            <th>β (log odds)</th>
+            <th>OR</th>
+            <th>Std. err.</th>
+            <th>z</th>
+            <th>p-value</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>const</td><td>−0.6787</td><td>n/a</td><td>0.246</td><td>−2.76</td><td>0.006</td></tr>
+          <tr><td>position</td><td>−0.1176</td><td>0.889</td><td>0.004</td><td>−29.50</td><td>&lt;0.001</td></tr>
+          <tr><td>prop_starrating</td><td>0.2079</td><td>1.231</td><td>0.035</td><td>5.93</td><td>&lt;0.001</td></tr>
+          <tr><td>prop_review_score</td><td>0.1936</td><td>1.214</td><td>0.037</td><td>5.24</td><td>&lt;0.001</td></tr>
+          <tr><td>prop_brand_bool</td><td>0.0581</td><td>1.060</td><td>0.060</td><td>0.97</td><td>0.33</td></tr>
+          <tr><td>prop_location_score1</td><td>−0.0056</td><td>0.994</td><td>0.020</td><td>−0.28</td><td>0.78</td></tr>
+          <tr><td>log_price_usd</td><td>−0.5557</td><td>0.574</td><td>0.055</td><td>−10.04</td><td>&lt;0.001</td></tr>
+          <tr><td>prop_log_historical_price</td><td>0.0004</td><td>1.000</td><td>0.015</td><td>0.03</td><td>0.98</td></tr>
+          <tr><td>srch_booking_window</td><td>−0.0011</td><td>0.999</td><td>0.001</td><td>−1.80</td><td>0.072</td></tr>
+          <tr><td>srch_length_of_stay</td><td>−0.0572</td><td>0.944</td><td>0.017</td><td>−3.37</td><td>0.001</td></tr>
+          <tr><td>srch_adults_count</td><td>−0.0317</td><td>0.969</td><td>0.033</td><td>−0.95</td><td>0.34</td></tr>
+          <tr><td>srch_saturday_night_bool</td><td>−0.0534</td><td>0.948</td><td>0.057</td><td>−0.94</td><td>0.35</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p><strong>Linear probability model (OLS, clustered SEs).</strong> Rerun <code>python analysis/q2_linear_regression.py --data data/sample_q2.parquet</code> from the repo root; stdout includes the clustered-covariance summary plus sorted coefficient tables for comparison with logistic signs/magnitudes (LPM coefs approximate marginal Δ in booking probability).</p>
+
+    <h2>Key takeaways</h2>
+    <ul>
+      <li>Position is a dominant confounder; naive top-rank patterns overstate intrinsic hotel quality effects.</li>
+      <li>Quality and price interact strongly; value-oriented combinations are often more predictive than star rating alone.</li>
+      <li>Natural randomization in <code>random_bool=1</code> sessions is essential for cleaner interpretation.</li>
+    </ul>
+    <p>Treat these estimates as associative: they align with descriptives above and should be interpreted with observational-platform caveats rather than as exact causal elasticities.</p>
+  </article>
+</body>
+</html>

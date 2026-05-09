@@ -8,3 +8,8 @@ data/*.csv
 *.twbr
 *.tds
 *.tdsx
+
+# Local PDF toolchain (Chrome headless temp dirs)
+.chrome-user-data/
+.wf-tmp/
+.venv/
